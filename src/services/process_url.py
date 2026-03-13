@@ -14,6 +14,8 @@ class ProcessUrlResult:
     document_chunk_ids: List[UUID]
 
 async def process_url(url: str, response_id: UUID) -> ProcessUrlResult:
+    """Process a url and return a ProcessUrlResult"""
+
     html = fetch_page(url)
     text: str | None = extract_text(html)
 

@@ -1,5 +1,5 @@
-from sentence_transformers import SentenceTransformer, CrossEncoder
+from sentence_transformers import SentenceTransformer
+from ..core.config import MODEL
 
 async def create_embeddings(chunk):
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    return model.encode(chunk)
+    return MODEL.encode(chunk)

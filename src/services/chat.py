@@ -1,8 +1,10 @@
 from .search import search
 from uuid import uuid1
-from typing import List
 from .process_url import process_url, ProcessUrlResult
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from ..utils.retrieve import retrieve
+from ..utils.rerank import rerank_chunks
+from ..utils.generate_response import generate_response
+import asyncio
 
 async def chat(query: str):
 
@@ -10,10 +12,13 @@ async def chat(query: str):
 
     urls = search(query)
 
-    processed_urls: List[ProcessUrlResult] = []
+    await asyncio.gather(
+        *(process_url(url, response_id) for url in urls)
+    )
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(process_url, url, response_id): url for url in urls}
+    relevant_chunks = await retrieve(query=query, response_id=response_id)
+    reranked_chunks = await rerank_chunks(query=query, chunks=relevant_chunks)
 
-        for future in as_completed(futures):
-            processed_urls.append(future.result())
+    context = "\n\n".join([f"{r}" for r in reranked_chunks])
+
+    await generate_response(query=query, context=context)
