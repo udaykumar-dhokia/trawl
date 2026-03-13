@@ -1,12 +1,35 @@
 from src.utils.fetch_page import fetch_page
 from src.utils.extract_text import extract_text
 from src.utils.chunk_text import chunk_text
+from ..utils.insert_document import insert_document
+from ..utils.batch_insert_embeddings import batch_insert_embeddings
+from sqlalchemy import UUID
+from .embeddings import create_embeddings
+from typing import List
+from dataclasses import dataclass
 
-def process_url(url):
-    """Process a single URL: fetch -> extract -> chunk"""
+@dataclass
+class ProcessUrlResult:
+    document_id: UUID | None
+    document_chunk_ids: List[UUID]
+
+async def process_url(url: str, response_id: UUID) -> ProcessUrlResult:
     html = fetch_page(url)
-    text = extract_text(html)
+    text: str | None = extract_text(html)
+
     if text:
+        document_id = await insert_document(content=text, response_id=response_id)
         chunks = list(chunk_text(text))
-        return url, chunks
-    return url, []
+
+        embeddings = await create_embeddings(chunks)
+        document_chunk_ids = await batch_insert_embeddings(chunk_texts=chunks, embeddings=embeddings, document_id=document_id, response_id=response_id)
+
+        return ProcessUrlResult(
+            document_id=document_id,
+            document_chunk_ids=document_chunk_ids or []
+        )
+
+    return ProcessUrlResult(
+        document_id=None,
+        document_chunk_ids=[]
+    )

@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   db:
-    image: postgres:17
+    image: pgvector/pgvector:pg17
     container_name: searchx_postgres
     restart: always
     environment:
@@ -15,7 +15,7 @@ services:
       - db_data:/var/lib/postgresql/data
 
   pgadmin:
-    image: dpage/pgadmin4:7
+    image: dpage/pgadmin4:9
     container_name: searchx_pgadmin
     restart: always
     environment:

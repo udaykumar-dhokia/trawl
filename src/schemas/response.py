@@ -1,7 +1,7 @@
 import uuid
 from pydantic import BaseModel
 from typing import List
-import time
+from datetime import datetime
 
 class Response(BaseModel):
     id: uuid.UUID
@@ -9,4 +9,4 @@ class Response(BaseModel):
     query: str
     sources: List[str]
     response: str
-    created_at: time
+    created_at: datetime
