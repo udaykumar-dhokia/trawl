@@ -7,7 +7,6 @@ class Response(Base):
     __tablename__ = "responses"
 
     id = Column(UUID(as_uuid=True), primary_key=True, nullable=False)
-    vector_id = Column(UUID(as_uuid=True), nullable=False)
     chat_id = Column(UUID(as_uuid=True), nullable=False)
     query = Column(String)
     sources = Column(ARRAY(String))

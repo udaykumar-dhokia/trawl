@@ -9,6 +9,5 @@ class Chat(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, nullable=False)
     title = Column(Text)
-    responses = List[UUID(as_uuid=True)]
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=datetime.now())

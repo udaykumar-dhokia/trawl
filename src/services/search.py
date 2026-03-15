@@ -19,6 +19,6 @@ def search(query: str) -> List[str]:
     response = httpx.get(url=f"{SEARXNG_BASE_URL}/search", params=params)
     data = response.json()
 
-    urls = [r["url"] for r in data["results"]]
+    urls = [r["url"] for r in data["results"][:15]]
 
     return urls
