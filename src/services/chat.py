@@ -12,7 +12,7 @@ from ..utils.event import event
 import json
 from uuid import UUID
 
-async def chat(query: str, chat_id: UUID = None, response_id: UUID = None) -> AsyncGenerator[str, None]:
+async def chat(query: str, image_query: str, chat_id: UUID = None, response_id: UUID = None) -> AsyncGenerator[str, None]:
 
     if chat_id is None:
         chat_id = await insert_chat()
@@ -21,8 +21,9 @@ async def chat(query: str, chat_id: UUID = None, response_id: UUID = None) -> As
         response_id = uuid1()
 
     yield event("status", message="Searching the web...")
-    urls = await search(query)
+    urls, image_urls = await search(query, image_query)
     yield event("urls", urls=urls)
+    yield event("image_urls", image_urls=image_urls)
 
     yield event("status", message="Reading websites...")
     await asyncio.gather(
@@ -41,21 +42,28 @@ async def chat(query: str, chat_id: UUID = None, response_id: UUID = None) -> As
 
     async for chunk in generate_response(context=context, query=query):
         chunk_str = str(chunk).strip()
-        if chunk_str.startswith("data:"):
-            try:
-                parts = chunk_str.split("data: ")
-                for part in parts:
-                    if not part.strip():
-                        continue
-                    data = json.loads(part.strip())
-                    if data["type"] == "title":
+        if not chunk_str:
+            continue
+            
+        if "data:" in chunk_str:
+            parts = chunk_str.split("data:")
+            for part in parts:
+                clean_part = part.strip()
+                if not clean_part:
+                    continue
+                try:
+                    data = json.loads(clean_part)
+                    if data.get("type") == "title":
                         title = data.get("text", "")
-                    elif data["type"] == "content":
+                    elif data.get("type") == "content":
                         content += data.get("text", "")
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
         yield chunk
 
+    if not title:
+        title = query[:40] + ("..." if len(query) > 40 else "")
+
     await update_chat_title(chat_id=chat_id, title=title)
-    await insert_response(response_id=response_id, query=query, content=content, chat_id=chat_id, urls=urls)
+    await insert_response(response_id=response_id, query=query, content=content, chat_id=chat_id, urls=urls, image_urls=image_urls)

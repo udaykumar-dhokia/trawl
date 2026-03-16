@@ -23,6 +23,5 @@ async def generate_response(context: str, query: str) -> AsyncGenerator[str, Non
             yield event("status", message="Generating response...")
             first_token = False
         
-        # Stream the content directly
         if chunk.content:
             yield event("content", text=chunk.content)

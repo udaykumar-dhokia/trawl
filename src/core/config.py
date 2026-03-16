@@ -16,3 +16,4 @@ LLM = ChatOllama(
     base_url=OLLAMA_BASE_URL,
     model=DEFAULT_MODEL,
 )
+API_BASE=os.getenv("API_BASE")

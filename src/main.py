@@ -1,18 +1,27 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from .db.database import engine
+from .db.database import engine, SessionLocal
 from .models import Base
-from fastapi    .responses import StreamingResponse
+from fastapi.responses import StreamingResponse
 from .models.response import Response
 from .models.documents import Document, DocumentChunk
 from .models.chat import Chat
 from .services.invoke_chat import invoke_chat
 from typing import Optional
 from uuid import UUID
+from sqlalchemy.orm import Session
+from fastapi import Depends
 
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 class ChatRequest(BaseModel):
     query: str
@@ -26,10 +35,18 @@ def root():
 @app.post("/chat")
 async def chat(body: ChatRequest):
     return StreamingResponse(
-        invoke_chat(query=body.query, chat_id=body.chat_id,response_id=body.response_id),
+        invoke_chat(query=body.query, chat_id=body.chat_id, response_id=body.response_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         }
     )
+
+@app.get("/chats")
+def get_chats(db: Session = Depends(get_db)):
+    return db.query(Chat).order_by(Chat.created_at.desc()).all()
+
+@app.get("/responses")
+def get_responses(chat_id: UUID, db: Session = Depends(get_db)):
+    return db.query(Response).filter(Response.chat_id == chat_id).order_by(Response.created_at).all()

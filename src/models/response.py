@@ -10,5 +10,6 @@ class Response(Base):
     chat_id = Column(UUID(as_uuid=True), nullable=False)
     query = Column(String)
     sources = Column(ARRAY(String))
+    image_urls = Column(ARRAY(String))
     response = Column(String)
     created_at = Column(DateTime, server_default=func.now())
