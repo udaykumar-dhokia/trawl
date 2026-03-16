@@ -22,8 +22,16 @@ from textual.widgets import (
     ListView,
     Markdown,
     Static,
-    Button
+    Button,
+    RadioSet,
+    RadioButton,
+    Select
 )
+from textual.screen import ModalScreen
+from .utils.config_manager import ConfigManager
+import os
+import re
+import pyperclip
 
 STREAM_ENDPOINT = f"{API_BASE}/chat"
 CHATS_ENDPOINT = f"{API_BASE}/chats"
@@ -35,6 +43,148 @@ def fmt_time(iso: str) -> str:
         return dt.strftime("%b %d, %H:%M")
     except Exception:
         return iso
+
+class ConfigModal(ModalScreen):
+    """Configuration modal for LLM settings."""
+
+    DEFAULT_CSS = """
+    ConfigModal {
+        align: center middle;
+    }
+    #modal-container {
+        width: 60;
+        height: auto;
+        border: thick $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+    #modal-title {
+        text-align: center;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    .config-label {
+        margin-top: 1;
+        color: $text-muted;
+    }
+    #provider-select {
+        layout: horizontal;
+        height: 3;
+        margin-bottom: 1;
+    }
+    #button-row {
+        margin-top: 2;
+        height: 3;
+        layout: horizontal;
+    }
+    #save-btn {
+        width: 1fr;
+    }
+    #cancel-btn {
+        width: 15;
+        margin-left: 1;
+    }
+    #sel-model {
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "dismiss", "Cancel"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        config = ConfigManager.get_config()
+        provider = config.get("provider", "ollama")
+        
+        with Vertical(id="modal-container"):
+            yield Label("⚙️  SearchX Settings", id="modal-title")
+            
+            yield Label("LLM Provider", classes="config-label")
+            with RadioSet(id="provider-select"):
+                yield RadioButton("Ollama", id="opt-ollama", value=(provider == "ollama"))
+                yield RadioButton("Google", id="opt-google", value=(provider == "google"))
+            
+            yield Label("Ollama Base URL", id="lbl-ollama-url", classes="config-label")
+            yield Input(
+                config.get("ollama_base_url", "http://localhost:11434"),
+                placeholder="http://localhost:11434",
+                id="in-ollama-url"
+            )
+            
+            yield Label("Google API Key", id="lbl-google-key", classes="config-label")
+            yield Input(
+                config.get("google_api_key", ""),
+                placeholder="Enter Gemini API Key",
+                id="in-google-key",
+                password=True
+            )
+            
+            yield Label("Choose Model", classes="config-label")
+            yield Select([], id="sel-model", prompt="Select a model...")
+            
+            with Horizontal(id="button-row"):
+                yield Button("Save", variant="success", id="save-btn")
+                yield Button("Cancel", id="cancel-btn")
+
+    @on(Button.Pressed, "#cancel-btn")
+    def cancel_settings(self) -> None:
+        self.dismiss()
+
+    def on_mount(self) -> None:
+        self._update_visibility()
+        self._load_models()
+
+    def _update_visibility(self) -> None:
+        provider = "google" if self.query_one("#opt-google", RadioButton).value else "ollama"
+        is_google = (provider == "google")
+        
+        self.query_one("#lbl-ollama-url").display = not is_google
+        self.query_one("#in-ollama-url").display = not is_google
+        
+        self.query_one("#lbl-google-key").display = is_google
+        self.query_one("#in-google-key").display = is_google
+
+    @on(RadioSet.Changed)
+    def on_provider_changed(self) -> None:
+        self._update_visibility()
+        self._load_models()
+
+    @work(exclusive=True)
+    async def _load_models(self) -> None:
+        provider = "google" if self.query_one("#opt-google", RadioButton).value else "ollama"
+        models = []
+        
+        if provider == "ollama":
+            url = self.query_one("#in-ollama-url", Input).value
+            models = await ConfigManager.fetch_ollama_models(url)
+        else:
+            key = self.query_one("#in-google-key", Input).value
+            if key:
+                models = await ConfigManager.fetch_google_models(key)
+        
+        if models:
+            def truncate_name(name: str, limit: int = 22) -> str:
+                return name[:limit-3] + "..." if len(name) > limit else name
+
+            options = [(truncate_name(m), m) for m in models]
+            self.query_one("#sel-model", Select).set_options(options)
+            
+            current = ConfigManager.get_config().get("model")
+            if current in models:
+                self.query_one("#sel-model", Select).value = current
+
+    @on(Button.Pressed, "#save-btn")
+    def save_settings(self) -> None:
+        provider = "google" if self.query_one("#opt-google", RadioButton).value else "ollama"
+        config = {
+            "provider": provider,
+            "ollama_base_url": self.query_one("#in-ollama-url", Input).value,
+            "google_api_key": self.query_one("#in-google-key", Input).value,
+            "model": self.query_one("#sel-model", Select).value
+        }
+        ConfigManager.save_config(config)
+        self.dismiss()
 
 class StatusBar(Static):
     """Thin status strip shown inside the chat panel."""
@@ -175,6 +325,43 @@ class ChatBubble(Static):
     ChatBubble .response {
         color: $text;
     }
+    ChatBubble #copy-full-btn {
+        margin-top: 1;
+        background: $primary-darken-2;
+        color: $text;
+        width: 30;
+        height: 3;
+        border: none;
+    }
+    ChatBubble #copy-full-btn:hover {
+        background: $primary;
+    }
+
+    /* ── CodeBlock specific styles ── */
+    CodeBlock {
+        margin: 1 0;
+        background: $surface-darken-1;
+        border: solid $primary-darken-3;
+        height: auto;
+    }
+    .code-header {
+        height: 1;
+        background: $primary-darken-3;
+        layout: horizontal;
+        content-align: right middle;
+    }
+    .copy-icon-btn {
+        min-width: 4;
+        height: 1;
+        padding: 0 1;
+        background: transparent;
+        border: none;
+        color: $text-muted;
+    }
+    .copy-icon-btn:hover {
+        color: $accent;
+        background: $primary-darken-2;
+    }
     """
 
     def __init__(self, query: str, response: str) -> None:
@@ -184,7 +371,76 @@ class ChatBubble(Static):
 
     def compose(self) -> ComposeResult:
         yield Label(f"You: {escape(self._query)}", classes="query")
-        yield Markdown(self._response, classes="response")
+        
+        # Split response into text and code blocks
+        parts = re.split(r"(```(?:\w+)?\n.*?\n```)", self._response, flags=re.DOTALL)
+        for part in parts:
+            if part.startswith("```"):
+                # Extract code and language if needed
+                match = re.match(r"```(?:\w+)?\n(.*?)\n```", part, re.DOTALL)
+                code = match.group(1) if match else part
+                yield CodeBlock(code, original_md=part)
+            elif part.strip():
+                yield Markdown(part)
+        
+        yield Button("📋 Copy Full Response", id="copy-full-btn")
+
+    @on(Button.Pressed, "#copy-full-btn")
+    def copy_full(self) -> None:
+        try:
+            pyperclip.copy(self._response)
+            self.notify("Full response copied to clipboard!", severity="info", title="Success")
+        except Exception as e:
+            self.notify(f"Clipboard error: {str(e)}", severity="error", title="Error")
+
+class CodeBlock(Static):
+    """A widget for displaying code with an integrated copy button."""
+    
+    DEFAULT_CSS = """
+    CodeBlock {
+        margin: 1 0;
+        background: $surface-darken-1;
+        border: solid $primary-darken-3;
+        height: auto;
+    }
+    CodeBlock .code-header {
+        height: 1;
+        background: $primary-darken-3;
+        layout: horizontal;
+        content-align: right middle;
+    }
+    CodeBlock .copy-icon-btn {
+        min-width: 4;
+        height: 1;
+        padding: 0 1;
+        background: transparent;
+        border: none;
+        color: $text-muted;
+    }
+    CodeBlock .copy-icon-btn:hover {
+        color: $accent;
+        background: $primary-darken-2;
+    }
+    CodeBlock Markdown {
+        margin: 0;
+        padding: 0;
+    }
+    """
+
+    def __init__(self, code: str, original_md: str) -> None:
+        super().__init__()
+        self._code = code
+        self._original_md = original_md
+
+    def compose(self) -> ComposeResult:
+        with Horizontal(classes="code-header"):
+            yield Button("📋", classes="copy-icon-btn")
+        yield Markdown(self._original_md)
+
+    @on(Button.Pressed, ".copy-icon-btn")
+    def copy_code(self) -> None:
+        pyperclip.copy(self._code)
+        self.app.notify("Code copied to clipboard", severity="info")
 
 
 class LiveResponseWidget(Vertical):
@@ -211,12 +467,26 @@ class LiveResponseWidget(Vertical):
     LiveResponseWidget #live-md {
         height: auto;
     }
+    LiveResponseWidget #live-copy-full-btn {
+        margin-top: 1;
+        background: $accent-darken-1;
+        color: $text;
+        width: 30;
+        height: 3;
+        display: none;
+        border: none;
+    }
+    LiveResponseWidget #live-copy-full-btn:hover {
+        background: $accent;
+    }
     """
 
     def compose(self) -> ComposeResult:
         yield Label("", id="live-query")
         yield Label("", id="live-status")
-        yield Markdown("", id="live-md")
+        with Vertical(id="live-content"):
+            yield Markdown("", id="live-md")
+        yield Button("📋 Copy Full Response", id="live-copy-full-btn")
 
     def set_query(self, query: str) -> None:
         self.query_one("#live-query", Label).update(f"You: {escape(query)}")
@@ -233,10 +503,36 @@ class LiveResponseWidget(Vertical):
         current += token
         md._markdown = current
         md.update(current)
+        self._full_content = current
+
+    def show_copy_buttons(self) -> None:
+        """Show copy buttons and populate code block buttons."""
+        content = self.get_content()
+        self.query_one("#live-copy-full-btn").display = True
+        
+        # Replace the live-md with split sections
+        container = self.query_one("#live-content", Vertical)
+        container.remove_children()
+        
+        parts = re.split(r"(```(?:\w+)?\n.*?\n```)", content, flags=re.DOTALL)
+        for part in parts:
+            if part.startswith("```"):
+                match = re.match(r"```(?:\w+)?\n(.*?)\n```", part, re.DOTALL)
+                code = match.group(1) if match else part
+                container.mount(CodeBlock(code, original_md=part))
+            elif part.strip():
+                container.mount(Markdown(part))
+
+    @on(Button.Pressed, "#live-copy-full-btn")
+    def copy_full(self) -> None:
+        try:
+            pyperclip.copy(self.get_content())
+            self.app.notify("Full response copied to clipboard!", severity="info", title="Success")
+        except Exception as e:
+            self.app.notify(f"Clipboard error: {str(e)}", severity="error", title="Error")
 
     def get_content(self) -> str:
-        md: Markdown = self.query_one("#live-md", Markdown)
-        return getattr(md, "_markdown", "") or ""
+        return getattr(self, "_full_content", "")
 
 
 class SearchXApp(App):
@@ -324,6 +620,10 @@ class SearchXApp(App):
         background: $panel;
         border-top: tall $primary-darken-3;
         layout: horizontal;
+    }
+    #llm-switcher {
+        width: 30;
+        margin-right: 1;
     }
     #query-input {
         width: 1fr;
@@ -415,6 +715,7 @@ class SearchXApp(App):
     BINDINGS = [
         Binding("ctrl+n", "new_chat", "New Chat"),
         Binding("ctrl+r", "refresh_chats", "Refresh"),
+        Binding("ctrl+s", "settings", "Settings"),
         Binding("escape", "blur_input", "Blur"),
         Binding("ctrl+c", "quit", "Quit"),
     ]
@@ -442,6 +743,7 @@ class SearchXApp(App):
                         id="empty-state",
                     )
                 with Horizontal(id="input-row"):
+                    yield Select([], id="llm-switcher", prompt="Select LLM")
                     yield Input(placeholder="Ask anything…", id="query-input")
                     yield Button("Send ↵", id="send-btn", variant="primary")
 
@@ -461,6 +763,60 @@ class SearchXApp(App):
 
     def on_mount(self) -> None:
         self.load_chats()
+        self._populate_llm_switcher()
+        if not ConfigManager.is_configured():
+            self.action_settings()
+
+    @work(exclusive=True)
+    async def _populate_llm_switcher(self) -> None:
+        """Fetch models from providers and populate the switcher."""
+        config = ConfigManager.get_config()
+        options = []
+        
+        def truncate_name(name: str, limit: int = 15) -> str:
+            return name[:limit-3] + "..." if len(name) > limit else name
+
+        ollama_url = config.get("ollama_base_url") or "http://localhost:11434"
+        ollama_models = await ConfigManager.fetch_ollama_models(ollama_url)
+        if ollama_models:
+            options.append(("[Ollama]", "header-ollama"))
+            for m in ollama_models:
+                display_name = truncate_name(m)
+                options.append((f"  {display_name}", f"ollama:{m}"))
+            
+        google_key = config.get("google_api_key") or os.getenv("GOOGLE_API_KEY")
+        if google_key:
+            google_models = await ConfigManager.fetch_google_models(google_key)
+            if google_models:
+                options.append(("[Google Gemini]", "header-google"))
+                for m in google_models:
+                    display_name = truncate_name(m)
+                    options.append((f"  {display_name}", f"google:{m}"))
+        
+        switcher = self.query_one("#llm-switcher", Select)
+        switcher.set_options(options)
+        
+        current_provider = config.get("provider", "ollama")
+        current_model = config.get("model")
+        if current_model:
+            val = f"{current_provider}:{current_model}"
+            if any(opt[1] == val for opt in options):
+                switcher.value = val
+
+    @on(Select.Changed, "#llm-switcher")
+    def on_llm_changed(self, event: Select.Changed) -> None:
+        if not isinstance(event.value, str):
+            return
+        if ":" not in event.value:
+            return
+        provider, model = event.value.split(":", 1)
+        config = ConfigManager.get_config()
+        config["provider"] = provider
+        config["model"] = model
+        ConfigManager.save_config(config)
+
+    def action_settings(self) -> None:
+        self.push_screen(ConfigModal(), callback=lambda _: self._populate_llm_switcher())
 
     @work(thread=True)
     def load_chats(self) -> None:
@@ -653,6 +1009,7 @@ class SearchXApp(App):
                             if chat_id:
                                 self.current_chat_id = chat_id
                             live.clear_status()
+                            live.show_copy_buttons()
                             self.load_chats()
 
         except Exception as e:

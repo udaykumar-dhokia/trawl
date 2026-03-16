@@ -1,4 +1,4 @@
-from ..core.config import LLM
+from ..core.config import get_llm
 from typing import AsyncGenerator
 from .event import event
 
@@ -18,7 +18,7 @@ async def generate_response(context: str, query: str) -> AsyncGenerator[str, Non
     yield event("status", message="Thinking...")
     
     first_token = True
-    async for chunk in LLM.astream(prompt):
+    async for chunk in get_llm().astream(prompt):
         if first_token:
             yield event("status", message="Generating response...")
             first_token = False
