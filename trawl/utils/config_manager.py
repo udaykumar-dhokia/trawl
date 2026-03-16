@@ -5,9 +5,9 @@ from typing import Optional, List, Dict, Any
 import httpx
 
 class ConfigManager:
-    """Manages SearchX configuration in ~/.searchx/config.json"""
+    """Manages trawl configuration in ~/.trawl/config.json"""
     
-    CONFIG_DIR = Path.home() / ".searchx"
+    CONFIG_DIR = Path.home() / ".trawl"
     CONFIG_FILE = CONFIG_DIR / "config.json"
 
     @classmethod

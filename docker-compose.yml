@@ -3,29 +3,29 @@ version: "3.9"
 services:
   db:
     image: pgvector/pgvector:pg17
-    container_name: searchx_postgres
+    container_name: trawl_postgres
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: searchx_db
+      POSTGRES_DB: trawl_db
     ports:
       - "7000:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
-      - searchx_net
+      - trawl_net
 
   redis:
     image: redis:7-alpine
-    container_name: searchx_redis
+    container_name: trawl_redis
     restart: always
     networks:
-      - searchx_net
+      - trawl_net
 
   searxng:
     image: searxng/searxng:latest
-    container_name: searchx_searxng
+    container_name: trawl_searxng
     restart: always
     environment:
       - SEARXNG_BASE_URL=http://localhost:8080
@@ -36,14 +36,14 @@ services:
     depends_on:
       - redis
     networks:
-      - searchx_net
+      - trawl_net
 
   backend:
     build: .
-    container_name: searchx_backend
+    container_name: trawl_backend
     restart: always
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/searchx_db
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/trawl_db
       - SEARXNG_BASE_URL=http://searxng:8080
       - API_BASE=http://localhost:8000
     ports:
@@ -52,11 +52,11 @@ services:
       - db
       - searxng
     networks:
-      - searchx_net
+      - trawl_net
 
   pgadmin:
     image: dpage/pgadmin4:9
-    container_name: searchx_pgadmin
+    container_name: trawl_pgadmin
     restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
@@ -66,10 +66,10 @@ services:
     depends_on:
       - db
     networks:
-      - searchx_net
+      - trawl_net
 
 networks:
-  searchx_net:
+  trawl_net:
     driver: bridge
 
 volumes:

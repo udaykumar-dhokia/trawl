@@ -11,6 +11,8 @@ from typing import Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
 from fastapi import Depends
+import uvicorn
+import os
 
 app = FastAPI()
 
@@ -30,7 +32,7 @@ class ChatRequest(BaseModel):
 
 @app.get("/")
 def root():
-    return {"message": "Hello World"}
+    return {"message": "Server is running"}
 
 @app.post("/chat")
 async def chat(body: ChatRequest):
@@ -50,3 +52,10 @@ def get_chats(db: Session = Depends(get_db)):
 @app.get("/responses")
 def get_responses(chat_id: UUID, db: Session = Depends(get_db)):
     return db.query(Response).filter(Response.chat_id == chat_id).order_by(Response.created_at).all()
+
+def run_api():
+    """Entry point for the trawl-api command."""
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8000"))
+    print(f"Starting trawl API server on {host}:{port}")
+    uvicorn.run(app, host=host, port=port)

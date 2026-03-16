@@ -98,7 +98,7 @@ class ConfigModal(ModalScreen):
         provider = config.get("provider", "ollama")
         
         with Vertical(id="modal-container"):
-            yield Label("⚙️  SearchX Settings", id="modal-title")
+            yield Label("⚙️ trawl Settings", id="modal-title")
             
             yield Label("LLM Provider", classes="config-label")
             with RadioSet(id="provider-select"):
@@ -535,10 +535,10 @@ class LiveResponseWidget(Vertical):
         return getattr(self, "_full_content", "")
 
 
-class SearchXApp(App):
-    """SearchX TUI."""
+class TrawlApp(App):
+    """Trawl TUI."""
 
-    TITLE = "SearchX"
+    TITLE = "trawl  "
     SUB_TITLE = "AI Powered Knowledge Assistant"
 
     CSS = """
@@ -736,7 +736,7 @@ class SearchXApp(App):
 
             # Centre chat panel
             with Vertical(id="chat-panel"):
-                yield Label("SearchX", id="chat-panel-title")
+                yield Label("trawl", id="chat-panel-title")
                 with ScrollableContainer(id="messages"):
                     yield Static(
                         "Select a chat or start a new one  ↙",
@@ -1030,7 +1030,7 @@ class SearchXApp(App):
         self._update_sources([])
         self._update_images([])
         self._update_videos([])
-        self.query_one("#chat-panel-title", Label).update("SearchX")
+        self.query_one("#chat-panel-title", Label).update("")
         self.query_one("#query-input", Input).focus()
 
     def action_refresh_chats(self) -> None:
@@ -1045,7 +1045,7 @@ class SearchXApp(App):
 
 
 def run_tui() -> None:
-    SearchXApp().run()
+    TrawlApp().run()
 
 if __name__ == "__main__":
     run_tui()

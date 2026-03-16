@@ -1,9 +1,21 @@
 import os
+import sys
+import contextlib
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer, CrossEncoder
-from langchain_ollama import ChatOllama
-from langchain_google_genai import ChatGoogleGenerativeAI
-from ..utils.config_manager import ConfigManager
+
+@contextlib.contextmanager
+def suppress_output():
+    """Context manager to suppress stdout and stderr."""
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = devnull
+        sys.stderr = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
 
 load_dotenv()
 
@@ -11,8 +23,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 SEARXNG_BASE_URL = os.getenv("SEARXNG_BASE_URL")
 API_BASE = os.getenv("API_BASE")
 INDEX_PATH = "faiss_index.idx"
-MODEL = SentenceTransformer("all-MiniLM-L6-v2")
-CROSS_ENCODER = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+with suppress_output():
+    from sentence_transformers import SentenceTransformer, CrossEncoder
+    MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+    CROSS_ENCODER = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 def get_llm():
     """Retrieve LLM based on ConfigManager or fallback to .env"""
