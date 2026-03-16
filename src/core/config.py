@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer, CrossEncoder
+from langchain_ollama import ChatOllama
 
 load_dotenv()
 
@@ -11,3 +12,7 @@ MODEL = SentenceTransformer("all-MiniLM-L6-v2")
 CROSS_ENCODER = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL")
+LLM = ChatOllama(
+    base_url=OLLAMA_BASE_URL,
+    model=DEFAULT_MODEL,
+)

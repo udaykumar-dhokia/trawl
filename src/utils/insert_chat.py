@@ -5,7 +5,6 @@ from ..models.chat import Chat
 from uuid import uuid1
 
 async def insert_chat() -> UUID:
-
     chat_id = uuid1()
 
     with Session(engine) as session:

@@ -1,17 +1,15 @@
-from ollama import Client
-from ..core.config import OLLAMA_BASE_URL, DEFAULT_MODEL
-from langchain.agents import create_agent
-from langchain_ollama import ChatOllama
 from dataclasses import dataclass
-from langchain.agents.structured_output import ToolStrategy
+from ..utils.spawn_agent import spawn_agent
+from typing import AsyncGenerator
+from .event import event
 
 @dataclass
 class AIResponse:
-    """Response for AI"""
+    """Response from AI"""
     title: str
     content: str
 
-async def generate_response(context: str, query: str) -> AIResponse:
+async def generate_response(context: str, query: str) -> AsyncGenerator[str, None]:
 
     prompt=f"""
     You are an expert AI assistant. Strictly use this context below to answer the user's question clearly and concisely with appropriate title.
@@ -19,19 +17,14 @@ async def generate_response(context: str, query: str) -> AIResponse:
     {context}
     """
 
-    llm = ChatOllama(
-        base_url=OLLAMA_BASE_URL or "http://localhost:11434",
-        model=DEFAULT_MODEL
-    )
-
-    agent = create_agent(
-        model=llm,
-        system_prompt=prompt,
-        response_format=ToolStrategy(AIResponse)
-    )
+    yield event("status", message="Thinking...")
+    agent = spawn_agent(prompt, AIResponse)
 
     response = agent.invoke(
         {"messages": [{"role": "user", "content": query}]},
     )
 
-    return response["structured_response"]
+    result: AIResponse = response["structured_response"]
+
+    yield event("title", text=result.title)
+    yield event("content", text=result.content)

@@ -2,7 +2,7 @@ import argparse
 import asyncio
 import uvicorn
 from src.main import app
-from src.services.chat import chat
+from src.services.invoke_chat import invoke_chat
 import truststore
 
 async def main():
@@ -12,7 +12,7 @@ async def main():
 
     if args.q:
         query = args.q
-        await chat(query=query)
+        await invoke_chat(query=query)
     else:
         uvicorn.run(app, host="0.0.0.0", port=8000)
 
