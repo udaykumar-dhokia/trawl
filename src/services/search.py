@@ -5,7 +5,7 @@ from ..core.config import SEARXNG_BASE_URL
 
 load_dotenv()
 
-async def search(query: str, image_query: str) -> Tuple[List[str], List[str]]:
+async def search(query: str, image_query: str, video_query: str) -> Tuple[List[str], List[str], List[str]]:
     """Search for the relevant websites asynchronously"""
 
     if not SEARXNG_BASE_URL:
@@ -22,13 +22,22 @@ async def search(query: str, image_query: str) -> Tuple[List[str], List[str]]:
         "format": "json"
     }
 
+    video_search_params={
+        "q": video_query,
+        "categories": "videos",
+        "format": "json"
+    }
+
     async with httpx.AsyncClient() as client:
         web_response = await client.get(url=f"{SEARXNG_BASE_URL}/search", params=web_search_params)
         image_response = await client.get(url=f"{SEARXNG_BASE_URL}/search", params=image_search_params)
+        video_response = await client.get(url=f"{SEARXNG_BASE_URL}/search", params=video_search_params)
         web_data = web_response.json()
+        video_data = video_response.json()
         image_data = image_response.json()
 
     urls = [r["url"] for r in web_data["results"][:15]]
     image_urls = [r["img_src"] for r in image_data["results"][:5]]
+    video_urls = [r["url"] for r in video_data["results"][:5]]
 
-    return urls, image_urls
+    return urls, image_urls, video_urls

@@ -90,6 +90,42 @@ class ImageItem(Static):
         import webbrowser
         webbrowser.open(self._url)
 
+class VideoItem(Static):
+    """Clickable video URL item."""
+
+    DEFAULT_CSS = """
+    VideoItem {
+        height: auto;
+        padding: 0 1;
+        margin-bottom: 1;
+        border-left: thick $success;
+        color: $text;
+        background: $surface;
+    }
+    VideoItem:hover {
+        background: $boost;
+    }
+    """
+
+    def __init__(self, index: int, url: str) -> None:
+        super().__init__()
+        self._index = index
+        self._url = url
+
+    def render(self) -> str:
+        domain = escape(self._url.split("/")[2] if "//" in self._url else self._url)
+        short_url = self._url[:55] + ("…" if len(self._url) > 55 else "")
+        safe_short = escape(short_url)
+
+        return (
+            f"[{self._index}] 🎥  {domain}\n"
+            f"[dim][link='{self._url}']{safe_short}[/link][/dim]"
+        )
+
+    def on_click(self) -> None:
+        import webbrowser
+        webbrowser.open(self._url)
+
 class SourceItem(Static):
     """Single source link in the right sidebar."""
 
@@ -347,6 +383,20 @@ class SearchXApp(App):
         scrollbar-size: 1 1;
         border-bottom: tall $primary-darken-3;
     }
+    #sidebar-right-videos-title {
+        background: $primary-darken-2;
+        color: $text;
+        text-style: bold;
+        padding: 0 2;
+        height: 3;
+        content-align: left middle;
+    }
+    #videos-scroll {
+        height: 1fr;
+        padding: 1 1;
+        scrollbar-size: 1 1;
+        border-bottom: tall $primary-darken-3;
+    }
     #sources-scroll {
         height: 1fr;
         padding: 1 1;
@@ -400,6 +450,9 @@ class SearchXApp(App):
                 yield Label("🖼️  Images", id="sidebar-right-images-title")
                 with ScrollableContainer(id="images-scroll"):
                     yield Static("No images yet.")
+                yield Label("🎥  Videos", id="sidebar-right-videos-title")
+                with ScrollableContainer(id="videos-scroll"):
+                    yield Static("No videos yet.")
                 yield Label("🔗  Sources", id="sidebar-right-title")
                 with ScrollableContainer(id="sources-scroll"):
                     yield Static("No sources yet.")
@@ -461,19 +514,23 @@ class SearchXApp(App):
 
         all_sources: list[str] = []
         all_images: list[str] = []
+        all_videos: list[str] = []
 
         for resp in responses:
             query = resp.get("query", "")
             content = resp.get("response", "")
             sources = resp.get("sources") or []
             images = resp.get("image_urls") or []
+            videos = resp.get("video_urls") or []
             all_sources.extend(sources)
             all_images.extend(images)
+            all_videos.extend(videos)
             messages.mount(ChatBubble(query, content))
 
         messages.scroll_end(animate=False)
         self._update_sources(all_sources)
         self._update_images(all_images)
+        self._update_videos(all_videos)
 
     def _update_images(self, urls: list[str]) -> None:
         scroll = self.query_one("#images-scroll", ScrollableContainer)
@@ -483,6 +540,15 @@ class SearchXApp(App):
             return
         for i, url in enumerate(urls, 1):
             scroll.mount(ImageItem(i, url))
+
+    def _update_videos(self, urls: list[str]) -> None:
+        scroll = self.query_one("#videos-scroll", ScrollableContainer)
+        scroll.remove_children()
+        if not urls:
+            scroll.mount(Static("No videos yet."))
+            return
+        for i, url in enumerate(urls, 1):
+            scroll.mount(VideoItem(i, url))
 
 
     def _update_sources(self, urls: list[str]) -> None:
@@ -579,6 +645,9 @@ class SearchXApp(App):
                         elif event_type == "image_urls":
                             self._update_images(data.get("image_urls", []))
 
+                        elif event_type == "video_urls":
+                            self._update_videos(data.get("video_urls", []))
+
                         elif event_type == "done":
                             chat_id = data.get("chat_id")
                             if chat_id:
@@ -603,6 +672,7 @@ class SearchXApp(App):
         messages.mount(Static("Start a new conversation ↓"))
         self._update_sources([])
         self._update_images([])
+        self._update_videos([])
         self.query_one("#chat-panel-title", Label).update("SearchX")
         self.query_one("#query-input", Input).focus()
 

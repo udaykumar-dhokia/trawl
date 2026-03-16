@@ -6,14 +6,14 @@
 
 **SearchX** is a high-performance, On-Premise AI Powered Knowledge Assistant with terminal interface. Inspired by modern search engines like Perplexity, it brings deep-dive research capabilities directly to your command line.
 
-![SearchX Demo Mockup](./demo.png)
+![SearchX Demo Mockup](./demo.svg)
 
 ---
 
 ## Features
 
 - **Live Streaming Responses**: Real-time markdown streaming for immediate feedback.
-- **Visual Research Insights**: Dedicated image sidebar displaying relevant visuals discovered during research.
+- **Visual Research Insights**: Dedicated image and video sidebar displaying relevant visuals discovered during research.
 - **Smart Research Orchestration**: Automatically searches the web, processes multiple sources, and synthesizes answers.
 - **Source Citations**: Interactive sidebar displaying all research sources with site-specific icons/emojis.
 - **Persistent Threads**: Full chat history support powered by PostgreSQL and SQLAlchemy.

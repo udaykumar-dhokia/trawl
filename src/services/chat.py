@@ -12,7 +12,7 @@ from ..utils.event import event
 import json
 from uuid import UUID
 
-async def chat(query: str, image_query: str, chat_id: UUID = None, response_id: UUID = None) -> AsyncGenerator[str, None]:
+async def chat(query: str, image_query: str, video_query: str, chat_id: UUID = None, response_id: UUID = None) -> AsyncGenerator[str, None]:
 
     if chat_id is None:
         chat_id = await insert_chat()
@@ -21,9 +21,10 @@ async def chat(query: str, image_query: str, chat_id: UUID = None, response_id: 
         response_id = uuid1()
 
     yield event("status", message="Searching the web...")
-    urls, image_urls = await search(query, image_query)
+    urls, image_urls, video_urls = await search(query, image_query, video_query)
     yield event("urls", urls=urls)
     yield event("image_urls", image_urls=image_urls)
+    yield event("video_urls", video_urls=video_urls)
 
     yield event("status", message="Reading websites...")
     await asyncio.gather(
@@ -66,4 +67,4 @@ async def chat(query: str, image_query: str, chat_id: UUID = None, response_id: 
         title = query[:40] + ("..." if len(query) > 40 else "")
 
     await update_chat_title(chat_id=chat_id, title=title)
-    await insert_response(response_id=response_id, query=query, content=content, chat_id=chat_id, urls=urls, image_urls=image_urls)
+    await insert_response(response_id=response_id, query=query, content=content, chat_id=chat_id, urls=urls, image_urls=image_urls, video_urls=video_urls)

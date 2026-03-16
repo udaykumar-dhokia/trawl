@@ -10,11 +10,13 @@ class AIResponse:
     """Response from AI"""
     enhanced_query: str
     image_query: str
+    video_query: str
 
 async def invoke_chat(query: str, chat_id: UUID = None, response_id: UUID = None) -> AsyncGenerator[str, None]:
     prompt ="""
         Generate a precise and optimized search engine query that will return the most relevant and high-quality results.
         Also generate a query for image search.
+        Also generate a query for video search.
     
         Guidelines:
         - Use important keywords from the request
@@ -40,6 +42,7 @@ async def invoke_chat(query: str, chat_id: UUID = None, response_id: UUID = None
 
     enhanced_query = response["structured_response"].enhanced_query
     image_query = response["structured_response"].image_query
+    video_query = response["structured_response"].video_query
 
-    async for chunk in chat(enhanced_query, image_query, chat_id, response_id):
+    async for chunk in chat(enhanced_query, image_query, video_query, chat_id, response_id):
         yield chunk
